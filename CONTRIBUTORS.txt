@@ -24,7 +24,4 @@
 # Please keep the list sorted.
 # (first name; alphabetical order)
 
-Harry Dalton <harry.dalton@daltonmaag.com>
-Jany Belluz <jany.belluz@daltonmaag.com>
-Nikolaus Waxweiler <nikolaus.waxweiler@daltonmaag.com>
-Ricky Atkins <ricky.atkins@daltonmaag.com>
+Dalton Maag <sd@daltonmaag.com>
