@@ -1,0 +1,65 @@
+[config]
+repo_path = "../../Fonts/Mutator Sans"
+commit_start = "45389b8f316013ef86d83b221760e50dcff387b6"
+commit_end = "origin/master"
+
+# Green - design finished and ready for review
+# Yellow - in progress
+# Red - not started
+# Blue - in progress for a future version
+
+[[status]]
+name = "Ready for review (drawn)"
+plot_color = "#2ecc71"
+glyph_type = "drawn"
+mark_color = "green"
+
+[[status]]
+name = "Ready for review (composite)"
+glyph_type = "composite"
+plot_color = "#a9eec6"
+mark_color = "green"
+
+[[status]]
+name = "In progress for v1.000 (drawn)"
+plot_color = "#3498db"
+glyph_type = "drawn"
+mark_color = "blue"
+
+[[status]]
+name = "In progress for v1.000 (composite)"
+plot_color = "#aac7db"
+glyph_type = "composite"
+mark_color = "blue"
+
+[[status]]
+name = "None of the above (drawn)"
+plot_color = "#e74c3c"
+glyph_type = "drawn"
+
+[[status]]
+name = "None of the above (composite & unknown)"
+plot_color = "#e7b4af"
+
+[[milestone]]
+name = "Concept"
+plot_color = "#1d5c85"
+start_date = 2023-05-27
+due_date = 2023-06-01
+total_glyphs = 12
+
+[[milestone]]
+name = "Prototype"
+plot_color = "#1d5c85"
+starts_from_previous = true
+due_date = 2023-06-14
+total_glyphs = 42           # len("0123457BDENPRSUWbeqstuwzˆˇ˘˛˜˝HAKOGgnoakv ")
+total_ufos = 2
+
+[[milestone]]
+name = "Alpha"
+plot_color = "#1d5c85"
+starts_from_previous = true
+due_date = 2023-08-31
+total_glyphs = 55
+total_ufos = 4
