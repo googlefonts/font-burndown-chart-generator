@@ -67,8 +67,11 @@ class Config:
         repo_path = Path(raw_config["repo_path"])
         if not repo_path.is_dir():
             raise ValueError("repo_path should be a folder")
-        ufo_finder_raw = raw_config["ufo_finder"]
+        glyph_types = raw["glyph_types"]
+        if not set(glyph_types.values()) <= {"drawn", "composite"}:
+            raise ValueError("unsupport glyph type: only drawn & composite are allowed")
 
+        ufo_finder_raw = raw_config["ufo_finder"]
         algorithm = ufo_finder_raw["algorithm"]
         ufo_finder = None
         if algorithm == "glob":
@@ -90,7 +93,6 @@ class Config:
             for status in raw["status"]
         ]
 
-        # TODO: validate first milestone isn't starts_from_previous
         milestones = [
             Milestone(
                 name=milestone["name"],
@@ -102,12 +104,14 @@ class Config:
             )
             for milestone in raw["milestone"]
         ]
+        if len(milestones) > 0 and milestones[0].starts_from_previous:
+            raise ValueError("first milestone can't start from previous")
 
         return cls(
             repo_path=repo_path,
             git_rev_since=raw_config["commit_start"],
             git_rev_current=raw_config["commit_end"],
-            glyph_types=raw["glyph_types"],  # TODO: validate
+            glyph_types=glyph_types,
             ufo_finder=ufo_finder,
             statuses=statuses,
             milestones=milestones,
@@ -272,8 +276,6 @@ def plot_to_image(
                 [0, milestone.total_glyphs * milestone.total_ufos],
                 color=milestone.plot_color,
             )
-        elif index == 0:
-            raise IndexError("first milestone can't continue from previous")
         else:
             previous = config.milestones[index - 1]
             ax.plot(
