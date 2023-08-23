@@ -25,8 +25,8 @@ from subprocess import run
 from tempfile import TemporaryDirectory
 from typing import (
     Any,
-    Callable,
     Dict,
+    Iterator,
     List,
     Literal,
     Mapping,
@@ -38,6 +38,7 @@ from typing import (
 
 import matplotlib.pyplot as plt
 import toml
+import yaml
 from fontTools.designspaceLib import DesignSpaceDocument
 from ufoLib2.objects import Font, Glyph
 
@@ -48,7 +49,7 @@ class Config:
     git_rev_since: str
     git_rev_current: str
     glyph_types: dict[str, str]
-    ufo_finder: Callable[[Path], List[Path]]
+    ufo_finder: Iterator[Path]
     """Given the Git root folder in which the project has been checked out,
     returns a list of UFOs in which to look for glyph statuses.
     """
@@ -66,6 +67,18 @@ class Config:
         repo_path = Path(raw_config["repo_path"])
         if not repo_path.is_dir():
             raise ValueError("repo_path should be a folder")
+        ufo_finder_raw = raw_config["ufo_finder"]
+
+        algorithm = ufo_finder_raw["algorithm"]
+        ufo_finder = None
+        if algorithm == "glob":
+            ufo_finder = glob_finder(repo_path)
+        elif algorithm == "designspace":
+            ufo_finder = designspace_finder(ufo_finder_raw["designspace"])
+        elif algorithm == "google-fonts":
+            ufo_finder = google_fonts_config_finder(ufo_finder_raw["config"])
+        else:
+            raise ValueError(f'unsupport ufo_finder algorithm "{algorithm}"')
 
         statuses = [
             Status(
@@ -95,7 +108,7 @@ class Config:
             git_rev_since=raw_config["commit_start"],
             git_rev_current=raw_config["commit_end"],
             glyph_types=raw["glyph_types"],  # TODO: validate
-            ufo_finder=find_all_ufos,  # TODO: configuration option
+            ufo_finder=ufo_finder,
             statuses=statuses,
             milestones=milestones,
         )
@@ -170,7 +183,7 @@ def iter_revisions(repo_path, rev_since, rev_current):
     out = repo.git("rev-list", "--format=tformat:%H %aI", f"{rev_since}..{rev_current}")
     lines = [line for line in out.splitlines() if not line.startswith("commit")]
 
-    all_dates_and_shas = []
+    all_dates_and_shas: list[Tuple[datetime, str]] = []
     for line in lines:
         sha, date_iso = line.split(maxsplit=1)
         date = datetime.fromisoformat(date_iso)
@@ -206,6 +219,7 @@ def glyph_matches_type(
 ) -> bool:
     if status.glyph_type is None:
         return True
+    assert glyph.name
     return status.glyph_type == glyph_types.get(glyph.name, None)
 
 
@@ -407,7 +421,7 @@ def main() -> None:
             counts = []
             with revision.checkout() as tmpdir:
                 print("Opening UFOs", end="")
-                for ufo_path in config.ufo_finder(tmpdir):
+                for ufo_path in config.ufo_finder:
                     try:
                         ufo = Font.open(ufo_path)
                     except Exception as e:
@@ -441,8 +455,23 @@ def main() -> None:
 
 
 # region UFO finders
-def find_all_ufos(root: Path) -> List[Path]:
-    return [Path(path) for path in glob(f"{root}/**/*.ufo")]
+def glob_finder(root: Path) -> Iterator[Path]:
+    for path in glob(f"{root}/**/*.ufo"):
+        yield Path(path)
+
+
+def designspace_finder(designspace_path: Path) -> Iterator[Path]:
+    designspace = DesignSpaceDocument.fromfile(designspace_path)
+    for source in designspace.sources:
+        if source.path:
+            yield Path(source.path)
+
+
+def google_fonts_config_finder(config_path: Path) -> Iterator[Path]:
+    config = yaml.load(config_path.read_text())  # type: ignore
+    for source_path in config["sources"]:
+        for ufo_path in designspace_finder(source_path):
+            yield ufo_path
 
 
 # endregion
