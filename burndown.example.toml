@@ -2,6 +2,9 @@
 repo_path = "../../Fonts/Mutator Sans"
 commit_start = "45389b8f316013ef86d83b221760e50dcff387b6"
 commit_end = "origin/master"
+ufo_finder = { algorithm = "glob" }
+# ufo_finder = { algorithm = "designspace", designspace = ".../MyFont.designspace"}
+# ufo_finder = { algorithm = "google-fonts", config = ".../config.yaml" }
 
 # Green - design finished and ready for review
 # Yellow - in progress
