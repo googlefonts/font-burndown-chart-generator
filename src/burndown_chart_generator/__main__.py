@@ -15,7 +15,6 @@ import colorsys
 import hashlib
 import json
 import os
-import sys
 from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -48,6 +47,7 @@ class Config:
     repo_path: Path
     git_rev_since: str
     git_rev_current: str
+    glyph_types: dict[str, str]
     ufo_finder: Callable[[Path], List[Path]]
     """Given the Git root folder in which the project has been checked out,
     returns a list of UFOs in which to look for glyph statuses.
@@ -94,6 +94,7 @@ class Config:
             repo_path=repo_path,
             git_rev_since=raw_config["commit_start"],
             git_rev_current=raw_config["commit_end"],
+            glyph_types=raw["glyph_types"],  # TODO: validate
             ufo_finder=find_all_ufos,  # TODO: configuration option
             statuses=statuses,
             milestones=milestones,
@@ -190,18 +191,22 @@ def iter_revisions(repo_path, rev_since, rev_current):
 
 
 # region Glyph processing
-def glyph_matches_status(glyph: Glyph, status: Status) -> bool:
+def glyph_matches_status(
+    glyph_types: dict[str, str], glyph: Glyph, status: Status
+) -> bool:
     return (
-        glyph_matches_type(glyph, status)
+        glyph_matches_type(glyph_types, glyph, status)
         and glyph_matches_color(glyph, status)
         and glyph_matches_lib_key(glyph, status)
     )
 
 
-def glyph_matches_type(glyph: Glyph, status: Status) -> bool:
+def glyph_matches_type(
+    glyph_types: dict[str, str], glyph: Glyph, status: Status
+) -> bool:
     if status.glyph_type is None:
         return True
-    return status.glyph_type == GLYPH_TYPES.get(glyph.name, None)
+    return status.glyph_type == glyph_types.get(glyph.name, None)
 
 
 def glyph_matches_color(glyph: Glyph, status: Status) -> bool:
@@ -421,7 +426,7 @@ def main() -> None:
                             continue
                         counts = counts_by_date[revision.date]
                         for i, status in enumerate(config.statuses):
-                            if glyph_matches_status(glyph, status):
+                            if glyph_matches_status(config.glyph_types, glyph, status):
                                 counts[i] += 1
                                 break
             cache[revision.sha] = counts
@@ -433,63 +438,6 @@ def main() -> None:
         print(f"Writing cache {SELF_HASH}.json")
         save_cache(cache)
     plot_to_image(config, counts_by_date, output_path)
-
-
-# In IPython:
-# from ufoLib2 import Font
-# f = Font.open("sources/MyFont.ufo")
-# print({g.name: "drawn" if g.contours else "composite" for g in f})
-# TODO: move to config
-GLYPH_TYPES = {
-    "A": "drawn",
-    "Aacute": "composite",
-    "Adieresis": "composite",
-    "B": "drawn",
-    "C": "drawn",
-    "D": "drawn",
-    "E": "drawn",
-    "F": "drawn",
-    "G": "drawn",
-    "H": "drawn",
-    "I": "drawn",
-    "I.narrow": "drawn",
-    "IJ": "drawn",
-    "J": "drawn",
-    "J.narrow": "drawn",
-    "K": "drawn",
-    "L": "drawn",
-    "M": "drawn",
-    "N": "drawn",
-    "O": "drawn",
-    "P": "drawn",
-    "Q": "drawn",
-    "R": "drawn",
-    "S": "drawn",
-    "S.closed": "drawn",
-    "T": "drawn",
-    "U": "drawn",
-    "V": "drawn",
-    "W": "drawn",
-    "X": "drawn",
-    "Y": "drawn",
-    "Z": "drawn",
-    "acute": "drawn",
-    "arrowdown": "drawn",
-    "arrowleft": "drawn",
-    "arrowright": "drawn",
-    "arrowup": "drawn",
-    "colon": "composite",
-    "comma": "drawn",
-    "dieresis": "composite",
-    "dot": "drawn",
-    "period": "drawn",
-    "quotedblbase": "composite",
-    "quotedblleft": "composite",
-    "quotedblright": "composite",
-    "quotesinglbase": "composite",
-    "semicolon": "composite",
-    "space": "composite",
-}
 
 
 # region UFO finders
