@@ -9,28 +9,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-"""Generate a sort of burndown chart to evaluate progress.
-
-How to run:
-* create and activate a venv with matplotlib and pyyaml
-* run `python scripts/burndown-chart-generator.py`
-
-How to tweak: edit the `CONFIG = Config(...)` object below.
-"""
-
-
 from __future__ import annotations
 
 import colorsys
 import hashlib
 import json
-import sys
 import os
+import sys
 from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
+from glob import glob
 from pathlib import Path
 from subprocess import run
 from tempfile import TemporaryDirectory
@@ -46,9 +36,9 @@ from typing import (
     Tuple,
     Union,
 )
-from glob import glob
 
 import matplotlib.pyplot as plt
+import toml
 from fontTools.designspaceLib import DesignSpaceDocument
 from ufoLib2.objects import Font, Glyph
 
@@ -65,6 +55,49 @@ class Config:
     statuses: Sequence[Status]
     """Statuses ordered from most done to least done."""
     milestones: Sequence[Milestone]
+
+    # TODO: improve errors
+    @classmethod
+    def from_file(cls, path: Path):
+        raw = toml.load(path)
+        print(raw)
+
+        raw_config = raw["config"]
+        repo_path = Path(raw_config["repo_path"])
+        if not repo_path.is_dir():
+            raise ValueError("repo_path should be a folder")
+
+        statuses = [
+            Status(
+                name=status["name"],
+                glyph_type=status.get("glyph_type"),
+                plot_color=status["plot_color"],
+                mark_color=status.get("mark_color"),
+            )
+            for status in raw["status"]
+        ]
+
+        # TODO: validate first milestone isn't starts_from_previous
+        milestones = [
+            Milestone(
+                name=milestone["name"],
+                plot_color=milestone["plot_color"],
+                starts_from_previous=milestone.get("starts_from_previous", False),
+                due_date=milestone["due_date"],
+                total_glyphs=milestone["total_glyphs"],
+                total_ufos=milestone.get("total_ufos", 1),
+            )
+            for milestone in raw["milestone"]
+        ]
+
+        return cls(
+            repo_path=repo_path,
+            git_rev_since=raw_config["commit_start"],
+            git_rev_current=raw_config["commit_end"],
+            ufo_finder=find_all_ufos,  # TODO: configuration option
+            statuses=statuses,
+            milestones=milestones,
+        )
 
 
 GlyphType = Literal["drawn", "composite"]
@@ -249,9 +282,8 @@ def plot_to_image(
             bbox=dict(facecolor="#ffffffc0", edgecolor="#d6d6d6", boxstyle="round"),
         )
     ax.legend(loc="upper left")
-    print
     ax.set_title(
-        f"{CONFIG.repo_path.absolute().stem} on {config.git_rev_current} since {config.git_rev_since}"
+        f"{config.repo_path.absolute().stem} on {config.git_rev_current} since {config.git_rev_since}"
     )
     ax.set_xlabel("Commit date")
     ax.set_ylabel("Number of glyph sources")
@@ -345,7 +377,8 @@ CACHE_PATH = (
 def main() -> None:
     caching = "BURNDOWN_CACHING" in os.environ
     cache = get_cache() or {}
-    config = CONFIG
+    # TODO: config path CLI
+    config = Config.from_file(Path("burndown.example.toml"))
     counts_by_date: Dict[datetime, List[int]] = defaultdict(
         lambda: [0 for _ in config.statuses]
     )
@@ -406,6 +439,7 @@ def main() -> None:
 # from ufoLib2 import Font
 # f = Font.open("sources/MyFont.ufo")
 # print({g.name: "drawn" if g.contours else "composite" for g in f})
+# TODO: move to config
 GLYPH_TYPES = {
     "A": "drawn",
     "Aacute": "composite",
@@ -464,80 +498,6 @@ def find_all_ufos(root: Path) -> List[Path]:
 
 
 # endregion
-
-# Green - design finished and ready for review
-# Yellow - in progress
-# Red - not started
-# Blue - in progress for a future version
-CONFIG = Config(
-    repo_path=Path(sys.argv[1]),
-    git_rev_since="45389b8f316013ef86d83b221760e50dcff387b6",
-    git_rev_current="origin/master",
-    ufo_finder=find_all_ufos,
-    statuses=[
-        Status(
-            name="Ready for review (drawn)",
-            plot_color="#2ecc71",
-            glyph_type="drawn",
-            mark_color="green",
-        ),
-        Status(
-            name="Ready for review (composite)",
-            glyph_type="composite",
-            plot_color="#a9eec6",
-            mark_color="green",
-        ),
-        Status(
-            name="In progress for v1.000 (drawn)",
-            plot_color="#3498db",
-            glyph_type="drawn",
-            mark_color="blue",
-        ),
-        Status(
-            name="In progress for v1.000 (composite)",
-            plot_color="#aac7db",
-            glyph_type="composite",
-            mark_color="blue",
-        ),
-        Status(
-            name="None of the above (drawn)",
-            plot_color="#e74c3c",
-            glyph_type="drawn",
-        ),
-        Status(
-            name="None of the above (composite & unknown)",
-            plot_color="#e7b4af",
-            # Catch-all
-            # glyph_type="composite",
-        ),
-    ],
-    milestones=[
-        Milestone(
-            name="Concept",
-            plot_color="#1d5c85",
-            start_date=datetime(2023, 5, 27),
-            due_date=datetime(2023, 6, 1),
-            total_glyphs=len("HAKOGgnoakv "),
-            total_ufos=1,
-        ),
-        Milestone(
-            name="Prototype",
-            plot_color="#1d5c85",
-            starts_from_previous=True,
-            due_date=datetime(2023, 6, 14),
-            total_glyphs=len("0123457BDENPRSUWbeqstuwzˆˇ˘˛˜˝HAKOGgnoakv "),
-            total_ufos=2,
-        ),
-        Milestone(
-            name="Alpha",
-            plot_color="#1d5c85",
-            starts_from_previous=True,
-            due_date=datetime(2023, 8, 31),
-            total_glyphs=len(GLYPH_TYPES),
-            total_ufos=4,
-        ),
-    ],
-)
 
 
 if __name__ == "__main__":
