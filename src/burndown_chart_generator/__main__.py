@@ -182,12 +182,27 @@ class Revision:
             self._repo.git("worktree", "remove", tmpdir, check=False)
 
 
-# Small helper functions to count UFOs; they just return the number of args
-def _count(*args):
-    return len(args)
+# region UFO finders
+def glob_finder(root: Path) -> Iterator[Path]:
+    for path in glob(f"{root}/**/*.ufo"):
+        yield Path(path)
 
 
-opsz = wdth = wght = ROND = GRAD = ital = _count
+def designspace_finder(designspace_path: Path) -> Iterator[Path]:
+    designspace = DesignSpaceDocument.fromfile(designspace_path)
+    for source in designspace.sources:
+        if source.path:
+            yield Path(source.path)
+
+
+def google_fonts_config_finder(config_path: Path) -> Iterator[Path]:
+    config = yaml.load(config_path.read_text())  # type: ignore
+    for source_path in config["sources"]:
+        for ufo_path in designspace_finder(source_path):
+            yield ufo_path
+
+
+# endregion
 
 
 def iter_revisions(repo_path, rev_since, rev_current):
@@ -468,29 +483,6 @@ def main() -> None:
         print(f"Writing cache {SELF_HASH}.json")
         save_cache(cache, config.cache_folder)
     plot_to_image(config, counts_by_date, output_path)
-
-
-# region UFO finders
-def glob_finder(root: Path) -> Iterator[Path]:
-    for path in glob(f"{root}/**/*.ufo"):
-        yield Path(path)
-
-
-def designspace_finder(designspace_path: Path) -> Iterator[Path]:
-    designspace = DesignSpaceDocument.fromfile(designspace_path)
-    for source in designspace.sources:
-        if source.path:
-            yield Path(source.path)
-
-
-def google_fonts_config_finder(config_path: Path) -> Iterator[Path]:
-    config = yaml.load(config_path.read_text())  # type: ignore
-    for source_path in config["sources"]:
-        for ufo_path in designspace_finder(source_path):
-            yield ufo_path
-
-
-# endregion
 
 
 if __name__ == "__main__":
