@@ -46,6 +46,8 @@ from ufoLib2.objects import Font, Glyph
 @dataclass
 class Config:
     repo_path: Path
+    caching: bool
+    cache_folder: Path
     git_rev_since: str
     git_rev_current: str
     glyph_types: dict[str, str]
@@ -61,12 +63,19 @@ class Config:
     @classmethod
     def from_file(cls, path: Path):
         raw = toml.load(path)
-        print(raw)
 
         raw_config = raw["config"]
         repo_path = Path(raw_config["repo_path"])
         if not repo_path.is_dir():
             raise ValueError("repo_path should be a folder")
+        caching = raw_config.get("cache", False) or "BURNDOWN_CACHING" in os.environ
+        cache_folder = Path(
+            raw_config.get(
+                "cache_folder",
+                f"{os.getcwd()}{os.pathsep}.burndown-chart-generator-cache",
+            )
+        )
+
         glyph_types = raw["glyph_types"]
         if not set(glyph_types.values()) <= {"drawn", "composite"}:
             raise ValueError("unsupport glyph type: only drawn & composite are allowed")
@@ -109,6 +118,8 @@ class Config:
 
         return cls(
             repo_path=repo_path,
+            caching=caching,
+            cache_folder=cache_folder,
             git_rev_since=raw_config["commit_start"],
             git_rev_current=raw_config["commit_end"],
             glyph_types=glyph_types,
@@ -120,6 +131,7 @@ class Config:
 
 GlyphType = Literal["drawn", "composite"]
 SimpleColor = Literal["red", "yellow", "green", "blue", "purple"]
+Cache = dict[str, list[int]]
 
 
 @dataclass
@@ -377,29 +389,31 @@ def sha256(path: Path | str) -> str:
     return h.hexdigest()
 
 
-def get_cache() -> Optional[dict[str, list[int]]]:
-    if CACHE_PATH.exists():
+def get_cache(cache_folder: Path) -> Optional[Cache]:
+    cache_path = cache_folder / f"{SELF_HASH}.json"
+    if cache_path.exists():
         print("Loading cache")
-        return json.loads(CACHE_PATH.read_text())
+        return json.loads(cache_path.read_text())
 
 
-def save_cache(cache: dict[str, list[int]]):
-    CACHE_PATH.parent.mkdir(exist_ok=True)
-    CACHE_PATH.write_text(json.dumps(cache))
+def save_cache(cache: Cache, cache_folder: Path):
+    cache_path = cache_folder / f"{SELF_HASH}.json"
+    cache_folder.mkdir(exist_ok=True)
+    cache_path.write_text(json.dumps(cache))
 
 
 SELF_HASH = sha256(__file__)
-CACHE_PATH = (
-    Path(__file__).parent / ".burndown-chart-generator-cache" / f"{SELF_HASH}.json"
-)
 # endregion
 
 
 def main() -> None:
-    caching = "BURNDOWN_CACHING" in os.environ
-    cache = get_cache() or {}
     # TODO: config path CLI
     config = Config.from_file(Path("burndown.example.toml"))
+
+    cache = {}
+    if config.caching:
+        cache = get_cache(config.cache_folder) or {}
+
     counts_by_date: Dict[datetime, List[int]] = defaultdict(
         lambda: [0 for _ in config.statuses]
     )
@@ -450,9 +464,9 @@ def main() -> None:
 
     output_path = Path(".") / "burndown-chart.png"
     print(f"Writing out {output_path}")
-    if caching:
+    if config.caching:
         print(f"Writing cache {SELF_HASH}.json")
-        save_cache(cache)
+        save_cache(cache, config.cache_folder)
     plot_to_image(config, counts_by_date, output_path)
 
 
