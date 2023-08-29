@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.2", "setuptools_scm", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "burndown-chart-generator"
+authors = [{ name = "Dalton Maag Ltd", email = "sd@daltonmaag.com" }]
+license = { text = "Apache-2.0" }
+description = "A burndown chart generator for font projects, based on color marks"
+requires-python = ">=3.8"
+dependencies = ["fontTools", "matplotlib", "ufoLib2"]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/daltonmaag/font-burndown-chart-generator"
+
+[tool.setuptools_scm]
+write_to = "src/burndown_chart_generator/_version.py"
+
+# https://black.readthedocs.io/en/stable/compatible_configs.html#isort
+[tool.isort]
+profile = "black"
+known_first_party = "burndown_chart_generator"
+
+# https://code.visualstudio.com/docs/python/linting#_default-pylint-rules
+[tool.pylint.messages_control]
+disable = "all"
+enable = "F, E, unreachable, duplicate-key, unnecessary-semicolon, global-variable-not-assigned, unused-variable, binary-op-exception, bad-format-string, anomalous-backslash-in-string, bad-open-mode, unused-import"
+
+[tool.pylint.format]
+max-line-length = "88"
+
+[tool.ruff]
+ignore = ["E501"]
