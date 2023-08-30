@@ -19,21 +19,21 @@ from argparse import ArgumentParser
 from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date as Date, datetime as DateTime
 from glob import glob
 from pathlib import Path
 from subprocess import run
 from tempfile import TemporaryDirectory
 from typing import (
     Any,
-    Dict,
     Iterator,
-    List,
     Literal,
     Mapping,
     Optional,
     Sequence,
     Tuple,
+    Type,
+    TypeVar,
     Union,
 )
 
@@ -62,59 +62,103 @@ class Config:
     """Statuses ordered from most done to least done."""
     milestones: Sequence[Milestone]
 
-    # TODO: improve errors
     @classmethod
     def from_file(cls, path: Path):
+        V = TypeVar("V")
+
+        def get_section(config: dict[str, Any], header: str) -> Any:
+            try:
+                return config[header]
+            except KeyError:
+                raise KeyError(f"missing [{header}] from config")
+
+        def get(
+            config_section: dict[str, Any],
+            key: str,
+            key_type: Optional[Type[V]],
+            *,
+            context: Optional[str] = None,
+            default: Optional[V] = None,
+            optional: bool = False,
+        ) -> V:
+            try:
+                value = config_section[key]
+                if key_type is None or isinstance(value, key_type):
+                    return value
+                else:
+                    error = f'incorrect type for "{key}"'
+                    if context:
+                        error += f" (section {context})"
+                    error += f" in {path}: wanted {key_type.__name__}, got {type(value).__name__}"
+                    raise ValueError(error)
+            except KeyError:
+                if default is not None or optional:
+                    return default  # type: ignore
+                else:
+                    error = f"missing {key} from config"
+                    if context:
+                        error += f" (section {context})"
+                    raise KeyError(error)
+
         raw = toml.load(path)
 
-        raw_config = raw["config"]
-        repo_path = Path(raw_config["repo_path"])
+        raw_config = get_section(raw, "config")
+        repo_path = Path(get(raw_config, "repo_path", str, context="[config]"))
         if not repo_path.is_dir():
             raise ValueError("repo_path should be a folder")
-        caching = raw_config.get("cache", False) or "BURNDOWN_CACHING" in os.environ
+        caching = (
+            get(raw_config, "cache", bool, default=False)
+            or "BURNDOWN_CACHING" in os.environ
+        )
         cache_folder = Path(
-            raw_config.get(
+            get(
+                raw_config,
                 "cache_folder",
-                f"{os.getcwd()}{os.pathsep}.burndown-chart-generator-cache",
+                str,
+                default=f"{os.getcwd()}{os.pathsep}.burndown-chart-generator-cache",
             )
         )
 
-        glyph_types = raw["glyph_types"]
+        glyph_types = get_section(raw, "glyph_types")
         if not set(glyph_types.values()) <= {"drawn", "composite"}:
             raise ValueError("unsupport glyph type: only drawn & composite are allowed")
 
-        ufo_finder_raw = raw_config["ufo_finder"]
-        algorithm = ufo_finder_raw["algorithm"]
+        ufo_finder_raw = get(raw_config, "ufo_finder", None, context="[config]")
+        algorithm = get(ufo_finder_raw, "algorithm", str, context="[config]")
         ufo_finder = None
         if algorithm == "glob":
             ufo_finder = glob_finder(repo_path)
         elif algorithm == "designspace":
-            ufo_finder = designspace_finder(ufo_finder_raw["designspace"])
+            ufo_finder = designspace_finder(Path(ufo_finder_raw["designspace"]))
         elif algorithm == "google-fonts":
-            ufo_finder = google_fonts_config_finder(ufo_finder_raw["config"])
+            ufo_finder = google_fonts_config_finder(Path(ufo_finder_raw["config"]))
         else:
-            raise ValueError(f'unsupport ufo_finder algorithm "{algorithm}"')
+            raise ValueError(f'unsupported ufo_finder algorithm "{algorithm}"')
 
         statuses = [
             Status(
-                name=status["name"],
-                glyph_type=status.get("glyph_type"),
-                plot_color=status["plot_color"],
-                mark_color=status.get("mark_color"),
+                name=get(status, "name", str, context="[[status]]"),
+                glyph_type=get(status, "glyph_type", str, optional=True),  # type: ignore
+                plot_color=get(status, "plot_color", str, context="[[status]]"),
+                mark_color=get(status, "mark_color", None, optional=True),
             )
-            for status in raw["status"]
+            for status in get_section(raw, "status")
         ]
 
         milestones = [
             Milestone(
-                name=milestone["name"],
-                plot_color=milestone["plot_color"],
-                starts_from_previous=milestone.get("starts_from_previous", False),
-                due_date=milestone["due_date"],
-                total_glyphs=milestone["total_glyphs"],
-                total_ufos=milestone.get("total_ufos", 1),
+                name=get(milestone, "name", str, context="[[milestone]]"),
+                plot_color=get(milestone, "plot_color", str, context="[[milestone]]"),
+                starts_from_previous=get(
+                    milestone, "starts_from_previous", bool, default=False
+                ),
+                due_date=get(milestone, "due_date", Date, context="[[milestone]]"),
+                total_glyphs=get(
+                    milestone, "total_glyphs", int, context="[[milestone]]"
+                ),
+                total_ufos=get(milestone, "total_ufos", int, default=1),
             )
-            for milestone in raw["milestone"]
+            for milestone in get_section(raw, "milestone")
         ]
         if len(milestones) > 0 and milestones[0].starts_from_previous:
             raise ValueError("first milestone can't start from previous")
@@ -123,8 +167,8 @@ class Config:
             repo_path=repo_path,
             caching=caching,
             cache_folder=cache_folder,
-            git_rev_since=raw_config["commit_start"],
-            git_rev_current=raw_config["commit_end"],
+            git_rev_since=get(raw_config, "commit_start", str, context="[config]"),
+            git_rev_current=get(raw_config, "commit_end", str, context="[config]"),
             glyph_types=glyph_types,
             ufo_finder=ufo_finder,
             statuses=statuses,
@@ -134,6 +178,7 @@ class Config:
 
 GlyphType = Literal["drawn", "composite"]
 SimpleColor = Literal["red", "yellow", "green", "blue", "purple"]
+MarkColor = Union[SimpleColor, Tuple[float, float, float, float]]
 Cache = dict[str, list[int]]
 
 
@@ -142,7 +187,7 @@ class Status:
     name: str
     plot_color: str
     glyph_type: Optional[GlyphType] = None
-    mark_color: Optional[Union[SimpleColor, Tuple[float, float, float, float]]] = None
+    mark_color: Optional[MarkColor] = None
     lib_key_name: Optional[str] = None
     lib_key_value: Optional[Any] = None
 
@@ -151,10 +196,10 @@ class Status:
 class Milestone:
     name: str
     plot_color: str
-    due_date: datetime
+    due_date: Date
     total_glyphs: int
     total_ufos: int
-    start_date: Optional[datetime] = None
+    start_date: Optional[Date] = None
     starts_from_previous: bool = False
 
 
@@ -172,7 +217,7 @@ class Repo:
 @dataclass
 class Revision:
     sha: str
-    date: datetime
+    date: Date
     _repo: Repo
 
     @contextmanager
@@ -217,16 +262,16 @@ def iter_revisions(repo_path, rev_since, rev_current):
     out = repo.git("rev-list", "--format=tformat:%H %aI", f"{rev_since}..{rev_current}")
     lines = [line for line in out.splitlines() if not line.startswith("commit")]
 
-    all_dates_and_shas: list[Tuple[datetime, str]] = []
+    all_dates_and_shas: list[Tuple[Date, str]] = []
     for line in lines:
         sha, date_iso = line.split(maxsplit=1)
-        date = datetime.fromisoformat(date_iso)
+        date = DateTime.fromisoformat(date_iso).date()
         all_dates_and_shas.append((date, sha))
 
     # Process only the last commit of each day, in case of several commits per day.
     dates_and_shas = []
     for date, sha in sorted(all_dates_and_shas):
-        if dates_and_shas and date.date() == dates_and_shas[-1][0].date():
+        if dates_and_shas and date == dates_and_shas[-1][0]:
             # Same day, replace with this one which is later in the day
             dates_and_shas[-1] = (date, sha)
         else:
@@ -280,12 +325,12 @@ def glyph_matches_lib_key(glyph: Glyph, status: Status) -> bool:
 
 def plot_to_image(
     config: Config,
-    counts_by_date: Mapping[datetime, Sequence[int]],
+    counts_by_date: Mapping[Date, Sequence[int]],
     image_path: Path,
 ):
     # Example code from https://matplotlib.org/stable/gallery/lines_bars_and_markers/stackplot_demo.html#sphx-glr-gallery-lines-bars-and-markers-stackplot-demo-py
     dates = []
-    counts_by_status: List[List[int]] = [[] for _ in config.statuses]
+    counts_by_status: list[list[int]] = [[] for _ in config.statuses]
     for date, counts in sorted(counts_by_date.items()):
         dates.append(date)
         for i, count in enumerate(counts):
@@ -346,7 +391,7 @@ def plot_to_image(
 
 # region Color processing
 # https://en.wikipedia.org/wiki/Hue#24_hues_of_HSL/HSV
-HUE_TO_COLOR: List[Tuple[int, SimpleColor]] = [
+HUE_TO_COLOR: list[Tuple[int, SimpleColor]] = [
     (30, "red"),  # Up to 30°, classify as red
     (75, "yellow"),
     (165, "green"),
@@ -431,16 +476,16 @@ def main(config_path: Path) -> None:
     if config.caching:
         cache = get_cache(config.cache_folder) or {}
 
-    counts_by_date: Dict[datetime, List[int]] = defaultdict(
+    counts_by_date: dict[Date, list[int]] = defaultdict(
         lambda: [0 for _ in config.statuses]
     )
 
     # Data just for testing the graph
     # counts_by_date = {
-    #     datetime(2022, 12, 1): [0, 500, 500, 3000, 1000, 30000, 30000],
-    #     datetime(2022, 12, 10): [500, 500, 10000, 10000, 10000, 20000, 20000],
-    #     datetime(2022, 12, 20): [10000, 1000, 10000, 10000, 30000, 5000, 5000],
-    #     datetime(2022, 12, 30): [30000, 11000, 5000, 5000, 10000, 0, 0],
+    #     Date(2022, 12, 1): [0, 500, 500, 3000, 1000, 30000, 30000],
+    #     Date(2022, 12, 10): [500, 500, 10000, 10000, 10000, 20000, 20000],
+    #     Date(2022, 12, 20): [10000, 1000, 10000, 10000, 30000, 5000, 5000],
+    #     Date(2022, 12, 30): [30000, 11000, 5000, 5000, 10000, 0, 0],
     # }
 
     print("Preparing git worktree")
