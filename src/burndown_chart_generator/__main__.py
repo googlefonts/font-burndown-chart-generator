@@ -487,7 +487,7 @@ def main(config_path: Path) -> None:
     plot_to_image(config, counts_by_date, output_path)
 
 
-if __name__ == "__main__":
+def clap() -> None:
     parser = ArgumentParser(description="a font project burndown chart generator")
     parser.add_argument(
         "-c",
@@ -514,3 +514,7 @@ if __name__ == "__main__":
         print_glyph_types_for(args.ufo)
     else:
         main(args.config)
+
+
+if __name__ == "__main__":
+    clap()

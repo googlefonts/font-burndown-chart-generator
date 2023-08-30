@@ -15,7 +15,7 @@ dynamic = ["version"]
 Homepage = "https://github.com/daltonmaag/font-burndown-chart-generator"
 
 [project.scripts]
-burndown-chart-generator = "burndown_chart_generator.__main__:main"
+burndown-chart-generator = "burndown_chart_generator.__main__:clap"
 
 [tool.setuptools_scm]
 write_to = "src/burndown_chart_generator/_version.py"
