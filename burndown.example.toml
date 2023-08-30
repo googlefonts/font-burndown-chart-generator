@@ -69,7 +69,8 @@ due_date = 2023-08-31
 total_glyphs = 55
 total_ufos = 4
 
-# TODO: helper to generate this?
+# There's a helper to generate this section
+# Usage: burndown-chart-generator generate-glyph-types [UFO]
 [glyph_types]
 A = "drawn"
 Aacute = "composite"
