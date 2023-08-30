@@ -75,21 +75,21 @@ class Config:
         def get(
             config_section: dict[str, Any],
             key: str,
-            key_type: Optional[Type[V]],
             *,
+            type_check: Optional[Type[V]] = None,
             context: Optional[str] = None,
             default: Optional[V] = None,
             optional: bool = False,
         ) -> V:
             try:
                 value = config_section[key]
-                if key_type is None or isinstance(value, key_type):
+                if type_check is None or isinstance(value, type_check):
                     return value
                 else:
                     error = f'incorrect type for "{key}"'
                     if context:
                         error += f" (section {context})"
-                    error += f" in {path}: wanted {key_type.__name__}, got {type(value).__name__}"
+                    error += f" in {path}: wanted {type_check.__name__}, got {type(value).__name__}"
                     raise ValueError(error)
             except KeyError:
                 if default is not None or optional:
@@ -103,18 +103,20 @@ class Config:
         raw = toml.load(path)
 
         raw_config = get_section(raw, "config")
-        repo_path = Path(get(raw_config, "repo_path", str, context="[config]"))
+        repo_path = Path(
+            get(raw_config, "repo_path", type_check=str, context="[config]")
+        )
         if not repo_path.is_dir():
             raise ValueError("repo_path should be a folder")
         caching = (
-            get(raw_config, "cache", bool, default=False)
+            get(raw_config, "cache", type_check=bool, default=False)
             or "BURNDOWN_CACHING" in os.environ
         )
         cache_folder = Path(
             get(
                 raw_config,
                 "cache_folder",
-                str,
+                type_check=str,
                 default=f"{os.getcwd()}{os.pathsep}.burndown-chart-generator-cache",
             )
         )
@@ -123,8 +125,8 @@ class Config:
         if not set(glyph_types.values()) <= {"drawn", "composite"}:
             raise ValueError("unsupport glyph type: only drawn & composite are allowed")
 
-        ufo_finder_raw = get(raw_config, "ufo_finder", None, context="[config]")
-        algorithm = get(ufo_finder_raw, "algorithm", str, context="[config]")
+        ufo_finder_raw = get(raw_config, "ufo_finder", context="[config]")
+        algorithm = get(ufo_finder_raw, "algorithm", type_check=str, context="[config]")
         ufo_finder = None
         if algorithm == "glob":
             ufo_finder = glob_finder(repo_path)
@@ -137,26 +139,32 @@ class Config:
 
         statuses = [
             Status(
-                name=get(status, "name", str, context="[[status]]"),
-                glyph_type=get(status, "glyph_type", str, optional=True),  # type: ignore
-                plot_color=get(status, "plot_color", str, context="[[status]]"),
-                mark_color=get(status, "mark_color", None, optional=True),
+                name=get(status, "name", type_check=str, context="[[status]]"),
+                glyph_type=get(status, "glyph_type", type_check=str, optional=True),  # type: ignore
+                plot_color=get(
+                    status, "plot_color", type_check=str, context="[[status]]"
+                ),
+                mark_color=get(status, "mark_color", optional=True),
             )
             for status in get_section(raw, "status")
         ]
 
         milestones = [
             Milestone(
-                name=get(milestone, "name", str, context="[[milestone]]"),
-                plot_color=get(milestone, "plot_color", str, context="[[milestone]]"),
+                name=get(milestone, "name", type_check=str, context="[[milestone]]"),
+                plot_color=get(
+                    milestone, "plot_color", type_check=str, context="[[milestone]]"
+                ),
                 starts_from_previous=get(
-                    milestone, "starts_from_previous", bool, default=False
+                    milestone, "starts_from_previous", type_check=bool, default=False
                 ),
-                due_date=get(milestone, "due_date", Date, context="[[milestone]]"),
+                due_date=get(
+                    milestone, "due_date", type_check=Date, context="[[milestone]]"
+                ),
                 total_glyphs=get(
-                    milestone, "total_glyphs", int, context="[[milestone]]"
+                    milestone, "total_glyphs", type_check=int, context="[[milestone]]"
                 ),
-                total_ufos=get(milestone, "total_ufos", int, default=1),
+                total_ufos=get(milestone, "total_ufos", type_check=int, default=1),
             )
             for milestone in get_section(raw, "milestone")
         ]
@@ -167,8 +175,12 @@ class Config:
             repo_path=repo_path,
             caching=caching,
             cache_folder=cache_folder,
-            git_rev_since=get(raw_config, "commit_start", str, context="[config]"),
-            git_rev_current=get(raw_config, "commit_end", str, context="[config]"),
+            git_rev_since=get(
+                raw_config, "commit_start", type_check=str, context="[config]"
+            ),
+            git_rev_current=get(
+                raw_config, "commit_end", type_check=str, context="[config]"
+            ),
             glyph_types=glyph_types,
             ufo_finder=ufo_finder,
             statuses=statuses,
