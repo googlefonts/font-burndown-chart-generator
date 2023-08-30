@@ -15,6 +15,7 @@ import colorsys
 import hashlib
 import json
 import os
+from argparse import ArgumentParser
 from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -421,9 +422,8 @@ SELF_HASH = sha256(__file__)
 # endregion
 
 
-def main() -> None:
-    # TODO: config path CLI
-    config = Config.from_file(Path("burndown.example.toml"))
+def main(config_path: Path) -> None:
+    config = Config.from_file(config_path)
 
     cache = {}
     if config.caching:
@@ -486,4 +486,13 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = ArgumentParser(description="a font project burndown chart generator")
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=Path,
+        help="the path to the burndown generator config TOML file (defaults to ./burndown.toml)",
+        default=Path("burndown.toml"),
+    )
+    args = parser.parse_args()
+    main(args.config)
