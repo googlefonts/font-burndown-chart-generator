@@ -43,6 +43,8 @@ import yaml
 from fontTools.designspaceLib import DesignSpaceDocument
 from ufoLib2.objects import Font, Glyph
 
+from .glyph_types_generator import print_glyph_types_for
+
 
 @dataclass
 class Config:
@@ -494,5 +496,21 @@ if __name__ == "__main__":
         help="the path to the burndown generator config TOML file (defaults to ./burndown.toml)",
         default=Path("burndown.toml"),
     )
+    subparsers = parser.add_subparsers(
+        title="subcommands",
+        help="generates the [glyph-types] table for config TOML file based on a UFO",
+    )
+    subcommand = subparsers.add_parser(
+        "generate-glyph-types", prog="burndown_chart_generator generate-glyph-types"
+    )
+    subcommand.add_argument(
+        "ufo",
+        type=Path,
+        help="the path to the UFO to generate the config from",
+    )
     args = parser.parse_args()
-    main(args.config)
+    if "ufo" in vars(args):
+        # Subcommand called
+        print_glyph_types_for(args.ufo)
+    else:
+        main(args.config)
