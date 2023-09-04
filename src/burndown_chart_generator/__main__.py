@@ -311,8 +311,14 @@ def designspace_finder(designspace_path: Path) -> Iterator[Path]:
 def google_fonts_config_finder(config_path: Path) -> Iterator[Path]:
     config: Any = yaml.load(config_path.read_text())  # type: ignore
     for source_path in config["sources"]:
-        for ufo_path in designspace_finder(source_path):
-            yield ufo_path
+        source_path = Path(source_path)
+        if source_path.suffix == "designspace":
+            for ufo_path in designspace_finder(source_path):
+                yield ufo_path
+        elif source_path.suffix == "ufo":
+            yield source_path
+        else:
+            print(f"WARNING: unsupported source type: {source_path}")
 
 
 # endregion
