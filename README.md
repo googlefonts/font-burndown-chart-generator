@@ -49,6 +49,8 @@ A milestone is a trendline to reach number of glyphs across a number of UFOs by 
 Trendlines will start at zero glyphs unless `starts_from_previous` is set to `True`.
 The y axis "Number of glyph sources" is calculated by multiplying `total_glyphs` and `total_ufos`.
 
+`[[milestone]]` fields:
+
 - `name` (string): the name of the milestone (shown at the end of the trendline)
 - `plot_color` (string): the hex color (with `#` prefix) to drawn the line
 - `start_date` (YYYY-MM-DD date, optional): the start date for the target. Can be excluded if `starts_from_previous` is `True`
@@ -59,7 +61,10 @@ The y axis "Number of glyph sources" is calculated by multiplying `total_glyphs`
 
 #### Glyph types
 
-TODO
+The `[glyph_types]` section maps glyph names to their type, to help with status classification.
+Glyphs can either be "drawn" or "composite"
+
+To save the tedium of writing this by hand, you can generate it from a UFO using `burndown-chart-generator generate-glyph-types <UFO path>`, and then copy-paste it into your `burndown.toml`
 
 ## Running the tool
 
