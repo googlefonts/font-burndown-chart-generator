@@ -21,4 +21,4 @@ def print_glyph_types_for(ufo_path: Path):
         assert glyph.name
         name = glyph.name if not "." in glyph.name else f'"{glyph.name}"'
         glyph_type = "drawn" if glyph.contours else "composite"
-        print(f"{name} = {glyph_type}")
+        print(f'{name} = "{glyph_type}"')
