@@ -45,6 +45,7 @@ from fontTools.designspaceLib import DesignSpaceDocument  # pyright: ignore
 from ufoLib2.objects import Font, Glyph
 
 from .glyph_types_generator import print_glyph_types_for
+from . import __version__ as VERSION
 
 
 SUPPORTED_GLYPH_TYPES: set[str] = {"drawn", "composite"}
@@ -579,6 +580,13 @@ def main(config_path: Path) -> None:
 
 def clap() -> None:
     parser = ArgumentParser(description="a font project burndown chart generator")
+    parser.add_argument(
+        "-V",
+        "--version",
+        action="version",
+        version=f"v{VERSION}",
+        help="print the program's version and exit",
+    )
     parser.add_argument(
         "-c",
         "--config",
