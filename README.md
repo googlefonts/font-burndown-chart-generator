@@ -43,6 +43,8 @@ For example, a green mark on a drawn glyph should be labelled as "Ready for revi
   - `blue`
   - `purple`
 
+You can omit `glyph_type` and/or `mark_color` to give yourself catch-all options.
+
 #### Milestones
 
 A milestone is a trendline to reach number of glyphs across a number of UFOs by a certain date.
