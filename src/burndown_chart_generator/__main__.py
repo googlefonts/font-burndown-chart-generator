@@ -105,7 +105,9 @@ class Config:
 
         raw_config = get_section(raw, "config")
         repo_path = Path(
-            get(raw_config, "repo_path", type_check=str, context="[config]")
+            get(
+                raw_config, "repo_path", type_check=str, context="[config]", default="."
+            )
         )
         if not repo_path.is_dir():
             raise ValueError("repo_path should be a folder")
