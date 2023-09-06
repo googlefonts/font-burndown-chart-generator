@@ -265,7 +265,7 @@ def google_fonts_config_finder(config_path: Path) -> Iterator[Path]:
 # endregion
 
 
-def iter_revisions(repo_path, rev_since, rev_current):
+def iter_revisions(repo_path, rev_since, rev_current) -> Iterator[Revision]:
     """Iterate through the given git revisions, and for each checkout the
     repository into a temp folder and yield that, along with the date of the
     revision.
@@ -274,23 +274,23 @@ def iter_revisions(repo_path, rev_since, rev_current):
     out = repo.git("rev-list", "--format=tformat:%H %aI", f"{rev_since}..{rev_current}")
     lines = [line for line in out.splitlines() if not line.startswith("commit")]
 
-    all_dates_and_shas: list[Tuple[Date, str]] = []
+    all_commits: list[Tuple[DateTime, str]] = []
     for line in lines:
         sha, date_iso = line.split(maxsplit=1)
-        date = DateTime.fromisoformat(date_iso).date()
-        all_dates_and_shas.append((date, sha))
+        date = DateTime.fromisoformat(date_iso)
+        all_commits.append((date, sha))
 
     # Process only the last commit of each day, in case of several commits per day.
-    dates_and_shas = []
-    for date, sha in sorted(all_dates_and_shas):
-        if dates_and_shas and date == dates_and_shas[-1][0]:
+    filtered_commits: list[Tuple[Date, str]] = []
+    for date_time, sha in sorted(all_commits):
+        if len(filtered_commits) > 0 and date_time.date() == filtered_commits[-1][0]:
             # Same day, replace with this one which is later in the day
-            dates_and_shas[-1] = (date, sha)
+            filtered_commits[-1] = (date_time.date(), sha)
         else:
-            dates_and_shas.append((date, sha))
+            filtered_commits.append((date_time.date(), sha))
 
-    for i, (date, sha) in enumerate(dates_and_shas):
-        print(f"Processing commit {i+1}/{len(dates_and_shas)}: {sha} on {date}")
+    for i, (date, sha) in enumerate(filtered_commits):
+        print(f"Processing commit {i+1}/{len(filtered_commits)}: {sha} on {date}")
         yield Revision(sha, date, repo)
 
 
