@@ -254,7 +254,8 @@ def glob_finder(root: Path) -> Iterator[Path]:
 def designspace_finder(designspace_path: Path) -> Iterator[Path]:
     designspace = DesignSpaceDocument.fromfile(designspace_path)
     for source in designspace.sources:
-        if source.path:
+        # Exclude sparse sources
+        if source.path and source.layerName == None:
             yield Path(source.path)
 
 
