@@ -26,6 +26,7 @@ from subprocess import run
 from tempfile import TemporaryDirectory
 from typing import (
     Any,
+    Callable,
     Iterator,
     Literal,
     Mapping,
@@ -54,7 +55,7 @@ class Config:
     git_rev_since: str
     git_rev_current: str
     glyph_types: dict[str, str]
-    ufo_finder: Iterator[Path]
+    ufo_finder: Callable[[], Iterator[Path]]
     """Given the Git root folder in which the project has been checked out,
     returns a list of UFOs in which to look for glyph statuses.
     """
@@ -129,11 +130,11 @@ class Config:
         algorithm = get(ufo_finder_raw, "algorithm", type_check=str, context="[config]")
         ufo_finder = None
         if algorithm == "glob":
-            ufo_finder = glob_finder(repo_path)
+            ufo_finder = lambda: glob_finder(repo_path)
         elif algorithm == "designspace":
-            ufo_finder = designspace_finder(Path(ufo_finder_raw["designspace"]))
+            ufo_finder = lambda: designspace_finder(Path(ufo_finder_raw["designspace"]))
         elif algorithm == "google-fonts":
-            ufo_finder = google_fonts_config_finder(Path(ufo_finder_raw["config"]))
+            ufo_finder = lambda: google_fonts_config_finder(Path(ufo_finder_raw["config"]))
         else:
             raise ValueError(f'unsupported ufo_finder algorithm "{algorithm}"')
 
@@ -510,15 +511,14 @@ def main(config_path: Path) -> None:
         else:
             counts = []
             with revision.checkout() as tmpdir:
-                print("Opening UFOs", end="")
-                for ufo_path in config.ufo_finder:
+                print("Opening UFOs")
+                for ufo_path in config.ufo_finder():
                     try:
                         ufo = Font.open(ufo_path)
                     except Exception as e:
                         relative_path = ufo_path.relative_to(tmpdir)
                         print(f"\nReading UFO '{relative_path}' failed, skipping: {e}")
                         continue
-                    print(".", end="", flush=True)
                     for glyph_name in ufo.keys():
                         try:
                             glyph = ufo[glyph_name]
