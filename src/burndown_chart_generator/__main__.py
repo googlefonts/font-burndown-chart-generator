@@ -41,7 +41,7 @@ from typing import (
 import matplotlib.pyplot as plt
 import toml
 import yaml
-from fontTools.designspaceLib import DesignSpaceDocument
+from fontTools.designspaceLib import DesignSpaceDocument  # pyright: ignore
 from ufoLib2.objects import Font, Glyph
 
 from .glyph_types_generator import print_glyph_types_for
@@ -134,7 +134,9 @@ class Config:
                 "unsupported glyph type: only drawn & composite are allowed"
             )
 
-        ufo_finder_raw = get(raw_config, "ufo_finder", context="[config]")
+        ufo_finder_raw: dict[str, str] = get(
+            raw_config, "ufo_finder", context="[config]"
+        )
         algorithm = get(ufo_finder_raw, "algorithm", type_check=str, context="[config]")
         ufo_finder = None
         ufo_finder_relative_path = None
@@ -248,7 +250,7 @@ class Milestone:
 class Repo:
     path: Path
 
-    def git(self, *args: str, check=True) -> str:
+    def git(self, *args: str, check: bool = True) -> str:
         command = ["git", "-C", str(self.path), *args]
         # print(f"Running {' '.join(command)}")
         res = run(command, check=check, capture_output=True, encoding="utf-8")
@@ -278,7 +280,7 @@ def glob_finder(root: Path) -> Iterator[Path]:
 
 
 def designspace_finder(designspace_path: Path) -> Iterator[Path]:
-    designspace = DesignSpaceDocument.fromfile(designspace_path)
+    designspace: Any = DesignSpaceDocument.fromfile(designspace_path)
     for source in designspace.sources:
         # Exclude sparse sources
         if source.path and source.layerName == None:
@@ -286,7 +288,7 @@ def designspace_finder(designspace_path: Path) -> Iterator[Path]:
 
 
 def google_fonts_config_finder(config_path: Path) -> Iterator[Path]:
-    config = yaml.load(config_path.read_text())  # type: ignore
+    config: Any = yaml.load(config_path.read_text())  # type: ignore
     for source_path in config["sources"]:
         for ufo_path in designspace_finder(source_path):
             yield ufo_path
@@ -295,7 +297,9 @@ def google_fonts_config_finder(config_path: Path) -> Iterator[Path]:
 # endregion
 
 
-def iter_revisions(repo_path, rev_since, rev_current) -> Iterator[Revision]:
+def iter_revisions(
+    repo_path: Path, rev_since: str, rev_current: str
+) -> Iterator[Revision]:
     """Iterate through the given git revisions, and for each checkout the
     repository into a temp folder and yield that, along with the date of the
     revision.
@@ -371,7 +375,7 @@ def plot_to_image(
     image_path: Path,
 ):
     # Example code from https://matplotlib.org/stable/gallery/lines_bars_and_markers/stackplot_demo.html#sphx-glr-gallery-lines-bars-and-markers-stackplot-demo-py
-    dates = []
+    dates: list[Date] = []
     counts_by_status: list[list[int]] = [[] for _ in config.statuses]
     for date, counts in sorted(counts_by_date.items()):
         dates.append(date)
