@@ -13,5 +13,11 @@ jobs:
         uses: psf/black@stable
         with:
           src: "./src"
+      - name: Setup & activate venv
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
       - name: Pyright
         uses: jakebailey/pyright-action@v1
