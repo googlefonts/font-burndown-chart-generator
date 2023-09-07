@@ -1,0 +1,26 @@
+name: Check & lint Python code
+
+on:
+  push:
+
+jobs:
+  check-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Black
+        uses: psf/black@stable
+        with:
+          src: "./src"
+      - uses: actions/setup-python@v4
+        with:
+          cache: 'pip'
+      - name: Setup & activate venv
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+      - name: Pyright
+        uses: jakebailey/pyright-action@v1
