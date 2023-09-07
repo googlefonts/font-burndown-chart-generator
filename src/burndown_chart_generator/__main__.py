@@ -55,7 +55,8 @@ class Config:
     git_rev_since: str
     git_rev_current: str
     glyph_types: dict[str, str]
-    ufo_finder: Callable[[], Iterator[Path]]
+    _ufo_finder: Callable[[Path], Iterator[Path]]
+    _ufo_finder_relative_path: Path
     """Given the Git root folder in which the project has been checked out,
     returns a list of UFOs in which to look for glyph statuses.
     """
@@ -126,17 +127,35 @@ class Config:
 
         glyph_types = get_section(raw, "glyph_types")
         if not set(glyph_types.values()) <= {"drawn", "composite"}:
-            raise ValueError("unsupport glyph type: only drawn & composite are allowed")
+            raise ValueError(
+                "unsupported glyph type: only drawn & composite are allowed"
+            )
 
         ufo_finder_raw = get(raw_config, "ufo_finder", context="[config]")
         algorithm = get(ufo_finder_raw, "algorithm", type_check=str, context="[config]")
         ufo_finder = None
+        ufo_finder_relative_path = None
         if algorithm == "glob":
-            ufo_finder = lambda: glob_finder(repo_path)
+            ufo_finder = glob_finder
+            ufo_finder_relative_path = Path(".")
         elif algorithm == "designspace":
-            ufo_finder = lambda: designspace_finder(Path(ufo_finder_raw["designspace"]))
+            ufo_finder = designspace_finder
+            try:
+                ufo_finder_relative_path = Path(
+                    ufo_finder_raw["designspace"]
+                ).relative_to(repo_path)
+            except ValueError:
+                raise ValueError("Designspace file must be within the repository")
         elif algorithm == "google-fonts":
-            ufo_finder = lambda: google_fonts_config_finder(Path(ufo_finder_raw["config"]))
+            ufo_finder = google_fonts_config_finder
+            try:
+                ufo_finder_relative_path = Path(ufo_finder_raw["config"]).relative_to(
+                    repo_path
+                )
+            except ValueError:
+                raise ValueError(
+                    "Google Fonts config file must be within the repository"
+                )
         else:
             raise ValueError(f'unsupported ufo_finder algorithm "{algorithm}"')
 
@@ -185,10 +204,14 @@ class Config:
                 raw_config, "commit_end", type_check=str, context="[config]"
             ),
             glyph_types=glyph_types,
-            ufo_finder=ufo_finder,
+            _ufo_finder=ufo_finder,
+            _ufo_finder_relative_path=ufo_finder_relative_path,
             statuses=statuses,
             milestones=milestones,
         )
+
+    def ufo_finder(self, within: Path) -> Iterator[Path]:
+        return self._ufo_finder(within / self._ufo_finder_relative_path)
 
 
 GlyphType = Literal["drawn", "composite"]
@@ -515,7 +538,7 @@ def main(config_path: Path) -> None:
             counts = []
             with revision.checkout() as tmpdir:
                 print("Opening UFOs")
-                for ufo_path in config.ufo_finder():
+                for ufo_path in config.ufo_finder(tmpdir):
                     try:
                         ufo = Font.open(ufo_path)
                     except Exception as e:
