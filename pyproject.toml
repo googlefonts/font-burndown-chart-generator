@@ -20,6 +20,14 @@ burndown-chart-generator = "burndown_chart_generator.__main__:clap"
 [tool.setuptools_scm]
 write_to = "src/burndown_chart_generator/_version.py"
 
+[tool.pyright]
+include = ["src"]
+exclude = ["**/__pycache__"]
+
+reportUnknownMemberType = false
+
+pythonPlatform = "Linux"
+
 # https://black.readthedocs.io/en/stable/guides/using_black_with_other_tools.html#isort
 [tool.isort]
 profile = "black"
