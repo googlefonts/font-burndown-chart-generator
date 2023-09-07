@@ -47,6 +47,9 @@ from ufoLib2.objects import Font, Glyph
 from .glyph_types_generator import print_glyph_types_for
 
 
+SUPPORTED_GLYPH_TYPES: set[str] = {"drawn", "composite"}
+
+
 @dataclass
 class Config:
     repo_path: Path
@@ -126,7 +129,7 @@ class Config:
         )
 
         glyph_types = get_section(raw, "glyph_types")
-        if not set(glyph_types.values()) <= {"drawn", "composite"}:
+        if not set(glyph_types.values()).issubset(SUPPORTED_GLYPH_TYPES):
             raise ValueError(
                 "unsupported glyph type: only drawn & composite are allowed"
             )
