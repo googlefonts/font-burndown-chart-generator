@@ -1,0 +1,17 @@
+name: Check & lint Python code
+
+on:
+  push:
+
+jobs:
+  check-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Black
+        uses: microsoft/action-python@0.7.1
+        with:
+          black: true
+      - name: Pyright
+        uses: microsoft/action-python@0.7.1
+        with:
+          pyright: true
