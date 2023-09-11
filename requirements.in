@@ -1,5 +1,7 @@
+attrs>=23.1
+cattrs>=23.1
 fontTools==4.42.0
 matplotlib==3.7.2
-ufoLib2==0.16.0
-toml>=0.10
 pyyaml>=6.0
+toml>=0.10
+ufoLib2==0.16.0

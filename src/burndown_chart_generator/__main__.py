@@ -11,9 +11,9 @@
 # limitations under the License.
 from __future__ import annotations
 
+import attrs
+import cattrs
 import colorsys
-import hashlib
-import json
 import os
 from argparse import ArgumentParser
 from collections import defaultdict
@@ -28,10 +28,12 @@ from typing import (
     Any,
     Callable,
     Iterator,
+    List,
     Literal,
     Mapping,
     Optional,
     Sequence,
+    Set,
     Tuple,
     Type,
     TypeVar,
@@ -55,10 +57,10 @@ SUPPORTED_GLYPH_TYPES: set[str] = {"drawn", "composite"}
 class Config:
     repo_path: Path
     caching: bool
-    cache_folder: Path
+    cache_path: Path
     git_rev_since: str
     git_rev_current: str
-    glyph_types: dict[str, str]
+    glyph_types: dict[str, GlyphType]
     _ufo_finder: Callable[[Path], Iterator[Path]]
     _ufo_finder_relative_path: Path
     """Given the Git root folder in which the project has been checked out,
@@ -120,12 +122,12 @@ class Config:
             get(raw_config, "cache", type_check=bool, default=False)
             or "BURNDOWN_CACHING" in os.environ
         )
-        cache_folder = Path(
+        cache_path = Path(
             get(
                 raw_config,
-                "cache_folder",
+                "cache_path",
                 type_check=str,
-                default=f"{os.getcwd()}{os.pathsep}.burndown-chart-generator-cache",
+                default=f"{os.getcwd()}{os.pathsep}.burndown-chart-generator-cache.toml",
             )
         )
 
@@ -202,7 +204,7 @@ class Config:
         return cls(
             repo_path=repo_path,
             caching=caching,
-            cache_folder=cache_folder,
+            cache_path=cache_path,
             git_rev_since=get(
                 raw_config, "commit_start", type_check=str, context="[config]"
             ),
@@ -223,10 +225,19 @@ class Config:
 GlyphType = Literal["drawn", "composite"]
 SimpleColor = Literal["red", "yellow", "green", "blue", "purple"]
 MarkColor = Union[SimpleColor, Tuple[float, float, float, float]]
-Cache = dict[str, list[int]]
 
 
-@dataclass
+def structure_mark_color(data, _type) -> Any:
+    if data is None or isinstance(data, (str, tuple)):
+        return data
+    else:
+        raise TypeError(f"invalid mark color: {data}")
+
+
+cattrs.register_structure_hook(Optional[MarkColor], structure_mark_color)
+
+
+@attrs.frozen(kw_only=True)
 class Status:
     name: str
     plot_color: str
@@ -488,40 +499,83 @@ assert describe_color(0.1313, 0.9997, 0.0236) == "green"
 
 
 # region Caching
-# https://stackoverflow.com/a/44873382
-def sha256(path: Path | str) -> str:
-    h = hashlib.sha256()
-    b = bytearray(128 * 1024)
-    mv = memoryview(b)
-    with open(path, "rb", buffering=0) as f:
-        while n := f.readinto(mv):
-            h.update(mv[:n])
-    return h.hexdigest()
+@attrs.define(kw_only=True)
+class Cache:
+    # All fields that aren't inner are cache keys
+    _statuses: set[Status]
+    _glyph_types: dict[str, GlyphType]
+    _burndown_chart_generator_version: str = attrs.field(default=VERSION)
+    _inner: dict[str, list[int]] = attrs.field(default=defaultdict(list))
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._inner
+
+    def __getitem__(self, key: str) -> List[int]:
+        return self._inner[key]
+
+    def __setitem__(self, key: str, value: list[int]):
+        self._inner[key] = value
+
+    @classmethod
+    def new(cls, config: Config) -> Cache:
+        return cls(
+            statuses=frozenset(config.statuses),
+            glyph_types=config.glyph_types,
+        )
+
+    @classmethod
+    def from_file(cls, cache_path: Path, config: Config) -> Cache:
+        if cache_path.exists():
+            print("Loading cache")
+            unstructured = toml.load(cache_path)
+            try:
+                converter = cattrs.Converter()
+                cache = cattrs.structure(unstructured, cls)
+                if cache.matches(config):
+                    print(
+                        "Ignoring cache (for an outdated version for burndown-chart-generator)"
+                    )
+                    return cache
+                else:
+                    return Cache.new(config)
+            except Exception as cattrs_err:
+                print("ERROR: unable to load cache")
+                print(cattrs.transform_error(cattrs_err))
+                return Cache.new(config)
+        else:
+            return Cache.new(config)
+
+    def save(self, cache_path: Path):
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        converter = cattrs.Converter(
+            unstruct_collection_overrides={
+                Set: list,
+            }
+        )
+        unstructured = converter.unstructure(self)
+        cache_path.write_text(
+            f"# This is a @generated file, do not modify{os.linesep}{toml.dumps(unstructured)}"
+        )
+
+    def matches(self, config: Config):
+        return (
+            # TODO: follow semver
+            self._burndown_chart_generator_version == VERSION
+            and self._statuses == set(config.statuses)
+            and self._glyph_types == config.glyph_types
+        )
 
 
-def get_cache(cache_folder: Path) -> Optional[Cache]:
-    cache_path = cache_folder / f"{SELF_HASH}.json"
-    if cache_path.exists():
-        print("Loading cache")
-        return json.loads(cache_path.read_text())
-
-
-def save_cache(cache: Cache, cache_folder: Path):
-    cache_path = cache_folder / f"{SELF_HASH}.json"
-    cache_folder.mkdir(exist_ok=True)
-    cache_path.write_text(json.dumps(cache))
-
-
-SELF_HASH = sha256(__file__)
 # endregion
 
 
 def main(config_path: Path) -> None:
     config = Config.from_file(config_path)
-
-    cache = {}
-    if config.caching:
-        cache = get_cache(config.cache_folder) or {}
+    cache = (
+        Cache.from_file(config.cache_path, config)
+        if config.caching
+        else Cache.new(config)
+    )
 
     counts_by_date: dict[Date, list[int]] = defaultdict(
         lambda: [0 for _ in config.statuses]
@@ -541,7 +595,11 @@ def main(config_path: Path) -> None:
     ):
         if revision.sha in cache:
             print("Using cached entry")
-            counts_by_date[revision.date] = cache[revision.sha]
+            value = cache[revision.sha]
+            # empty list is unhelpful to add, we'd rather just rely on the defaultdict
+            # in that case
+            if len(value) > 0:
+                counts_by_date[revision.date] = value
         else:
             counts = []
             with revision.checkout() as tmpdir:
@@ -573,8 +631,8 @@ def main(config_path: Path) -> None:
     output_path = Path(".") / "burndown-chart.png"
     print(f"Writing out {output_path}")
     if config.caching:
-        print(f"Writing cache {SELF_HASH}.json")
-        save_cache(cache, config.cache_folder)
+        print(f"Writing cache {config.cache_path}")
+        cache.save(config.cache_path)
     plot_to_image(config, counts_by_date, output_path)
 
 
