@@ -1,7 +1,7 @@
 [config]
 repo_path = "../../Fonts/Mutator Sans"
-cache = false
-cache_folder = ".burndown-chart-generator-cache"
+# cache = false
+# cache_path = ".burndown-chart-generator-cache.toml"
 commit_start = "45389b8f316013ef86d83b221760e50dcff387b6"
 commit_end = "origin/master"
 ufo_finder = { algorithm = "glob" }
