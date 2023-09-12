@@ -223,10 +223,10 @@ class Config:
     
     def export_env(self) -> None:
         print(f"BCG_VERSION={VERSION}")
-        print(f"BCG_REPO_PATH={self.repo_path}")
+        print(f"BCG_REPO_PATH={self.repo_path.absolute()}")
         if self.caching:
             print("BCG_CACHE=1")
-            print(f"BCG_CACHE_PATH={self.cache_path}")
+            print(f"BCG_CACHE_PATH={self.cache_path.absolute()}")
         print(f"BCG_GIT_REV_SINCE={self.git_rev_since}")
         print(f"BCG_GIT_REV_CURRENT={self.git_rev_current}")
 
