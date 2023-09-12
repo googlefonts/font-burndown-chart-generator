@@ -220,6 +220,15 @@ class Config:
 
     def ufo_finder(self, within: Path) -> Iterator[Path]:
         return self._ufo_finder(within / self._ufo_finder_relative_path)
+    
+    def export_env(self) -> None:
+        print(f"BCG_VERSION={VERSION}")
+        print(f"BCG_REPO_PATH={self.repo_path}")
+        if self.caching:
+            print("BCG_CACHE=1")
+            print(f"BCG_CACHE_PATH={self.cache_path}")
+        print(f"BCG_GIT_REV_SINCE={self.git_rev_since}")
+        print(f"BCG_GIT_REV_CURRENT={self.git_rev_current}")
 
 
 GlyphType = Literal["drawn", "composite"]
@@ -654,23 +663,37 @@ def clap() -> None:
     )
     subparsers = parser.add_subparsers(
         title="subcommands",
+        dest="subcommand",
+    )
+    glyph_types_subcommand = subparsers.add_parser(
+        "generate-glyph-types",
         help="generates the [glyph-types] table for config TOML file based on a UFO",
     )
-    subcommand = subparsers.add_parser(
-        "generate-glyph-types", prog="burndown_chart_generator generate-glyph-types"
-    )
-    subcommand.add_argument(
+    glyph_types_subcommand.add_argument(
         "ufo",
         type=Path,
         help="the path to the UFO to generate the config from",
     )
-    args = parser.parse_args()
-    if "ufo" in vars(args):
-        # Subcommand called
-        print_glyph_types_for(args.ufo)
-    else:
-        main(args.config)
+    export_env_subcommand = subparsers.add_parser(
+        "export-env",
+        help="prints environment variable declarations to STDOUT. Useful for CI"
+    )
+    export_env_subcommand.add_argument(
+        "-c",
+        "--config",
+        type=Path,
+        help="the path to the burndown generator config TOML file (defaults to ./burndown.toml)",
+        default=Path("burndown.toml"),
+    )
 
+    args = parser.parse_args()
+    match args.subcommand:
+        case None:
+            main(args.config)
+        case "generate-glyph-types":
+            print_glyph_types_for(args.ufo)
+        case "export-env":
+            Config.from_file(args.config).export_env()
 
 if __name__ == "__main__":
     clap()
