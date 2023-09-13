@@ -16,7 +16,7 @@ The expected name for the file is `burndown.toml`, but if you want something dif
 
 `[config]` fields:
 
-- `repo_path` (string): the main folder for your project, where Git lives (run `git rev-parse --show-toplevel` if you're not sure)
+- `repo_path` (string, defaults to same folder as config file): the main folder for your project, where Git lives (run `git rev-parse --show-toplevel` if you're not sure)
 - `commit_start` (string): the git revision to start the chart at (i.e. the first commit to analyse)
 - `commit_end` (string): the git revision to end the chart at, typically a branch name
 - `ufo_finder`: specifies the algorithm to use to find your UFOs. There are currently three options, some requiring additional fields (see the example for syntax)
@@ -24,7 +24,7 @@ The expected name for the file is `burndown.toml`, but if you want something dif
   - `designspace`: reads UFO paths from a given designspace file
   - `google-fonts`: reads the [Google Fonts Tools](https://github.com/googlefonts/gftools) configuration YAML file to get paths to UFOs/designspaces
 - `cache` (bool, default `false`): whether or not to save cache information to speed up subsequent runs
-- `cache_folder` (string, default `.burndown-chart-generator-cache`): where to save cache information. Has no effect unless `cache` is `true`
+- `cache_path` (string, default `.burndown-chart-generator-cache.toml`): where to save cache information. Has no effect unless `cache` is `true`
 
 #### Statuses
 

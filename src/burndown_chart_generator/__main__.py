@@ -113,7 +113,11 @@ class Config:
         raw_config = get_section(raw, "config")
         repo_path = Path(
             get(
-                raw_config, "repo_path", type_check=str, context="[config]", default="."
+                raw_config,
+                "repo_path",
+                type_check=str,
+                context="[config]",
+                default=path.parent,
             )
         )
         if not repo_path.is_dir():
@@ -220,7 +224,7 @@ class Config:
 
     def ufo_finder(self, within: Path) -> Iterator[Path]:
         return self._ufo_finder(within / self._ufo_finder_relative_path)
-    
+
     def export_env(self) -> None:
         print(f"BCG_VERSION={VERSION}")
         print(f"BCG_REPO_PATH={self.repo_path.absolute()}")
@@ -682,7 +686,7 @@ def clap() -> None:
     )
     export_env_subcommand = subparsers.add_parser(
         "export-env",
-        help="prints environment variable declarations to STDOUT. Useful for CI"
+        help="prints environment variable declarations to STDOUT. Useful for CI",
     )
     export_env_subcommand.add_argument(
         "-c",
@@ -700,6 +704,7 @@ def clap() -> None:
             print_glyph_types_for(args.ufo)
         case "export-env":
             Config.from_file(args.config).export_env()
+
 
 if __name__ == "__main__":
     clap()
