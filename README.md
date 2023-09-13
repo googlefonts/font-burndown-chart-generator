@@ -97,7 +97,21 @@ subcommands:
 
 ### In GitHub Actions
 
-TODO
+See [action-burndown](https://github.com/daltonmaag/action-burndown) for this use case.
+In short though, something like this:
+
+```yml
+steps:
+  - name: "Checkout repo"
+    uses: actions/checkout@v3
+    with:
+      # This does a full checkout of the repositry, making all
+      # commits/branches/tags available, which is needed for generating
+      # the burndown chart, as the tool traverses Git history
+      fetch-depth: 0
+  - name: "Generate burndown chart"
+    uses: daltonmaag/action-burndown@v0.1
+```
 
 ## How it works
 
