@@ -79,6 +79,22 @@ Otherwise, call `burndown-chart-generator --config <path to config.toml>`.
 
 The image will be saved into the current working directory with the name `burndown-chart.png`
 
+```
+usage: burndown-chart-generator [-h] [-V] [-c CONFIG] {generate-glyph-types,export-env} ...
+
+a font project burndown chart generator
+
+options:
+  -h, --help            show this help message and exit
+  -V, --version         print the program's version and exit
+  -c CONFIG, --config CONFIG
+                        the path to the burndown generator config TOML file (defaults to ./burndown.toml)
+
+subcommands:
+  generate-glyph-types  generates the [glyph-types] table for config TOML file based on a UFO
+  export-env            prints environment variable declarations to STDOUT. Useful for CI
+```
+
 ### In GitHub Actions
 
 TODO
