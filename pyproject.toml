@@ -7,10 +7,10 @@ name = "burndown-chart-generator"
 authors = [{ name = "Dalton Maag Ltd", email = "sd@daltonmaag.com" }]
 license = { text = "Apache-2.0" }
 description = "A burndown chart generator for font projects, based on color marks"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
-    "attrs",
-    "cattrs",
+    "attrs>=23.1",
+    "cattrs>=23.1",
     "fontTools",
     "matplotlib",
     "pyyaml",
@@ -18,6 +18,7 @@ dependencies = [
     "ufoLib2",
 ]
 dynamic = ["version"]
+readme = "README.md"
 
 [project.urls]
 Homepage = "https://github.com/daltonmaag/font-burndown-chart-generator"
