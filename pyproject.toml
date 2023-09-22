@@ -21,7 +21,7 @@ dynamic = ["version"]
 readme = "README.md"
 
 [project.urls]
-Homepage = "https://github.com/daltonmaag/font-burndown-chart-generator"
+Repository = "https://github.com/googlefonts/font-burndown-chart-generator"
 
 [project.scripts]
 burndown-chart-generator = "burndown_chart_generator.__main__:clap"
