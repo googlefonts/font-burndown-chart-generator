@@ -123,3 +123,25 @@ For each commit in the specified range\*:
 Then, using the status counts along with the commit dates, plots a chart to show progress
 
 (\* if there are multiple commits in a single calendar day, only the last one is considered, as a time saving measure)
+
+## Versioning
+
+This project adheres to [semantic versioning](https://semver.org/)
+
+Breaking changes that would require a major version increment:
+
+* Making a config that was valid (passes validation **and** has useful behaviour) in a previous version no longer load
+  * Changing the names of fields (without supporting fallback to the old names)
+  * Adding new required fields
+* Removing or renaming CLI flags
+* Changing the default settings to be semantically different
+  * e.g. making `starts_from_previous` default to `true` instead of `false`
+* Changing the default graph file name
+
+Notably this does not cover the appearance of the chart 
+
+Minor version changes:
+
+* Adding new, optional CLI flags or config file items
+* Adding a new valid value to an existing flag/option
+  * e.g. adding a new `ufo_finder` algorithm
