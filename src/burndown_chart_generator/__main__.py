@@ -234,6 +234,23 @@ class Config:
         print(f"BCG_GIT_REV_SINCE={self.git_rev_since}")
         print(f"BCG_GIT_REV_CURRENT={self.git_rev_current}")
 
+    def override_with(self, args: dict[str, Any]) -> None:
+        V = TypeVar("V")
+
+        def override(
+            key: str, type_check: Type[V], *, attribute_name: Optional[str] = None
+        ) -> Optional[V]:
+            if (value := args.get(key)) is not None:
+                if isinstance(value, type_check):
+                    config_attribute = attribute_name or key
+                    setattr(self, config_attribute, value)
+                else:
+                    print(f"bad value type for --{key}, ignoring")
+            return None
+
+        override("commit_start", str, attribute_name="git_rev_since")
+        override("commit_end", str, attribute_name="git_rev_current")
+
 
 GlyphType = Literal["drawn", "composite"]
 SimpleColor = Literal["red", "yellow", "green", "blue", "purple"]
@@ -588,8 +605,9 @@ class Cache:
 # endregion
 
 
-def main(config_path: Path) -> None:
+def main(config_path: Path, overrides: dict[str, Any] = dict()) -> None:
     config = Config.from_file(config_path)
+    config.override_with(overrides)
     cache = (
         Cache.from_file(config.cache_path, config)
         if config.caching
@@ -671,6 +689,20 @@ def clap() -> None:
         help="the path to the burndown generator config TOML file (defaults to ./burndown.toml)",
         default=Path("burndown.toml"),
     )
+    parser.add_argument(
+        "--commit-start",
+        "--from",
+        type=str,
+        metavar="FROM",
+        help="the git revision to start from",
+    )
+    parser.add_argument(
+        "--commit-end",
+        "--to",
+        type=str,
+        metavar="TO",
+        help='the git revision to go to (use "HEAD" for the latest commit)',
+    )
     subparsers = parser.add_subparsers(
         title="subcommands",
         dest="subcommand",
@@ -699,7 +731,12 @@ def clap() -> None:
     args = parser.parse_args()
     match args.subcommand:
         case None:
-            main(args.config)
+            # vars(args) will contain None values for unset flags, filter those
+            # Change names to snake_case from kebab-case
+            overrides = {
+                k.replace("-", "_"): v for k, v in vars(args).items() if v != None
+            }
+            main(args.config, overrides)
         case "generate-glyph-types":
             print_glyph_types_for(args.ufo)
         case "export-env":
