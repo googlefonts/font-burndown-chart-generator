@@ -1,6 +1,6 @@
 attrs>=23.1
 cattrs>=23.1
-fontTools==4.42.0
+fontTools==4.43.0
 matplotlib==3.7.2
 pyyaml>=6.0
 toml>=0.10
