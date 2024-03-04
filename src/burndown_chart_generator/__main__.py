@@ -295,7 +295,7 @@ class Revision:
                 self._repo.git("worktree", "add", "--detach", tmpdir, self.sha)
                 yield Path(tmpdir)
         finally:
-            self._repo.git("worktree", "remove", tmpdir, check=False)
+            self._repo.git("worktree", "remove", tmpdir, check=False)  # type: ignore
 
 
 # region UFO finders
