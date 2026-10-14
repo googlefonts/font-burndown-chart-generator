@@ -313,7 +313,7 @@ def designspace_finder(designspace_path: Path) -> Iterator[Path]:
 
 
 def google_fonts_config_finder(config_path: Path) -> Iterator[Path]:
-    config: Any = yaml.load(config_path.read_text())  # type: ignore
+    config: Any = yaml.safe_load(config_path.read_text())  # type: ignore
     for source_path in config["sources"]:
         source_path = Path(source_path)
         if source_path.suffix == "designspace":
